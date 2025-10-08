@@ -12,6 +12,7 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const TelegramBot = require('node-telegram-bot-api');
+const keep_alive = require('./keep_alive.js')
 
 const MOVIES_FILE = path.join(__dirname, 'movies.json');
 const PORT = process.env.PORT || 3000;
