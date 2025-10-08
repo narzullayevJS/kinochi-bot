@@ -1,18 +1,9 @@
-/*
-  Kinochi bot (Express.js + Telegram bot) - VIDEO bilan
-  - node-telegram-bot-api ishlatadi
-  - movies.json faylida saqlaydi
-  - admin orqali video yuklash qo‘shildi (file_id saqlanadi)
-  - foydalanuvchi raqam yuborsa video va caption yuboriladi
-*/
-
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const TelegramBot = require('node-telegram-bot-api');
-const keep_alive = require('./keep_alive.js')
 
 const MOVIES_FILE = path.join(__dirname, 'movies.json');
 const PORT = process.env.PORT || 3000;
@@ -46,52 +37,6 @@ const movies = loadMovies();
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-
-app.get('/movie/:id', (req, res) => {
-  const id = req.params.id.toString();
-  const mv = movies[id];
-  if (!mv) return res.status(404).json({ error: 'Movie not found' });
-  return res.json({ id, ...mv });
-});
-
-app.get('/admin', (req, res) => {
-  const adminId = req.query.admin_id;
-  if (!adminId || adminId.toString() !== ADMIN_TELEGRAM_ID.toString()) {
-    return res.status(403).send('<h3>Access denied. Admin ID required.</h3>');
-  }
-  res.send(`
-    <h2>Kino qo'shish (Admin)</h2>
-    <form method="POST" action="/admin/movie">
-      <input type="hidden" name="admin_id" value="${ADMIN_TELEGRAM_ID}" />
-      <label>Kod (masalan 202): <input name="id" required /></label><br/>
-      <label>Title: <input name="title" required /></label><br/>
-      <label>Description: <textarea name="description"></textarea></label><br/>
-      <label>Year: <input name="year" /></label><br/>
-      <button type="submit">Qo'shish</button>
-    </form>
-  `);
-});
-
-app.post('/admin/movie', (req, res) => {
-  const { admin_id, id, title, description, year } = req.body;
-  if (!admin_id || admin_id.toString() !== ADMIN_TELEGRAM_ID.toString()) {
-    return res.status(403).json({ error: 'Only admin allowed' });
-  }
-  if (!id || !title) return res.status(400).json({ error: 'id and title required' });
-
-  // ✅ Dublikat kino tekshiruvi
-  if (movies[id.toString()]) {
-    return res.status(400).json({ error: `⚠️ ${id} kodli kino allaqachon mavjud!` });
-  }
-
-  movies[id.toString()] = { title, description: description || '', year: year || '', file_id: '' };
-  saveMovies(movies);
-  return res.json({ ok: true, movie: { id: id.toString(), ...movies[id.toString()] } });
-});
-
-app.listen(PORT, () => {
-  console.log('Express server running on port', PORT);
-});
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 console.log('Telegram bot started');
