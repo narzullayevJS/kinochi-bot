@@ -60,6 +60,17 @@ bot.onText(/\/addmovie/, (msg) => {
   bot.sendMessage(chatId, 'Kino ID kiriting (masalan 202):');
 });
 
+// 🗑️ DELETE KOMANDASI
+bot.onText(/\/delete/, (msg) => {
+  const chatId = msg.chat.id;
+  if (!isAdminTelegramId(msg.from.id)) {
+    return bot.sendMessage(chatId, '❌ Siz admin emassiz.');
+  }
+
+  adminStates[chatId] = { step: 'wait_delete_id' };
+  bot.sendMessage(chatId, '🗑️ O‘chirmoqchi bo‘lgan kino ID sini kiriting:');
+});
+
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = (msg.text || '').trim();
@@ -67,8 +78,23 @@ bot.on('message', (msg) => {
   if (adminStates[chatId]) {
     const state = adminStates[chatId];
 
+    // 🗑️ DELETE STATE
+    if (state.step === 'wait_delete_id') {
+      const id = text;
+      if (movies[id]) {
+        const title = movies[id].title;
+        delete movies[id];
+        saveMovies(movies);
+        delete adminStates[chatId];
+        return bot.sendMessage(chatId, `✅ ${id} - "${title}" o‘chirildi.`);
+      } else {
+        delete adminStates[chatId];
+        return bot.sendMessage(chatId, `❌ ${id} ID li kino topilmadi.`);
+      }
+    }
+
+    // ➕ ADDMOVIE bosqichlari
     if (state.step === 'wait_id') {
-      // ✅ Dublikat kino tekshiruvi — agar shu ID bor bo‘lsa, kino qo‘shilmaydi
       if (movies[text]) {
         delete adminStates[chatId];
         return bot.sendMessage(chatId, `⚠️ ${text} kodli kino allaqachon mavjud!`);
@@ -103,6 +129,7 @@ bot.on('message', (msg) => {
     }
   }
 
+  // 🎬 Oddiy foydalanuvchi uchun kino qidiruv
   const maybeNum = text.match(/^(\d{1,6})$/);
   if (maybeNum) {
     const id = maybeNum[1];
