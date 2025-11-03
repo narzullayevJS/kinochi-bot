@@ -10,6 +10,7 @@ const MOVIES_FILE = path.join(__dirname, 'movies.json');
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
+const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME; // 🧩 kanal username
 
 if (!BOT_TOKEN) {
   console.error('Please set BOT_TOKEN in .env');
@@ -17,6 +18,10 @@ if (!BOT_TOKEN) {
 }
 if (!ADMIN_TELEGRAM_ID) {
   console.error('Please set ADMIN_TELEGRAM_ID in .env');
+  process.exit(1);
+}
+if (!CHANNEL_USERNAME) {
+  console.error('Please set CHANNEL_USERNAME in .env');
   process.exit(1);
 }
 
@@ -47,8 +52,56 @@ function isAdminTelegramId(id) {
   return id && id.toString() === ADMIN_TELEGRAM_ID.toString();
 }
 
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, '🎥 Salom! Kinoning raqamini yuboring (masalan 202)');
+// 🧩 Majburiy obuna tekshiruvchi funksiya
+async function checkSubscription(bot, chatId, userId) {
+  try {
+    const member = await bot.getChatMember(CHANNEL_USERNAME, userId);
+
+    if (member.status === 'left' || member.status === 'kicked') {
+      const options = {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "📢 Kanalga obuna bo‘lish", url: `https://t.me/${CHANNEL_USERNAME.replace('@', '')}` }],
+            [{ text: "✅ Tekshirish", callback_data: "check_sub" }]
+          ]
+        }
+      };
+      await bot.sendMessage(chatId, "❗ Botdan foydalanish uchun kanalga obuna bo‘ling:", options);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("❌ Obuna tekshirishda xatolik:", err);
+    await bot.sendMessage(chatId, "⚠️ Xatolik yuz berdi, keyinroq urinib ko‘ring.");
+    return false;
+  }
+}
+
+// 🧩 START komandasi majburiy obuna bilan
+bot.onText(/\/start/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  // 👑 Adminni tekshirishdan ozod qilamiz
+  if (!isAdminTelegramId(userId)) {
+    const ok = await checkSubscription(bot, chatId, userId);
+    if (!ok) return; // obuna bo‘lmagan bo‘lsa chiqib ketadi
+  }
+
+  bot.sendMessage(chatId, '🎥 Salom! Kinoning raqamini yuboring (masalan 202)');
+});
+
+// 🧩 Obuna holatini tekshiruvchi callback
+bot.on('callback_query', async (query) => {
+  const chatId = query.message.chat.id;
+  const userId = query.from.id;
+
+  if (query.data === 'check_sub') {
+    const ok = await checkSubscription(bot, chatId, userId);
+    if (ok) {
+      bot.sendMessage(chatId, "✅ Tabriklaymiz! Siz kanalga obuna bo‘lgansiz.\nEndi botdan foydalanishingiz mumkin.");
+    }
+  }
 });
 
 bot.onText(/\/addmovie/, (msg) => {
